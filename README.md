@@ -1,2 +1,3 @@
-# typedmapcodec
-Provides basic roundtrip JSON encoding/decoding of a map[string]interface{} with type mapping.
+# Codec for a Typed Map
+
+Provides basic roundtrip JSON etc. encoding/decoding of Go maps with type mapping support.
