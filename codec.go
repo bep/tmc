@@ -126,6 +126,15 @@ func (c *Codec) fromTypedMap(v interface{}) error {
 	}
 
 	for _, key := range mv.MapKeys() {
+		v := indirectInterface(mv.MapIndex(key))
+
+		if v.Type().Kind() == reflect.Map {
+			if err := c.fromTypedMap(v.Interface()); err != nil {
+				return nil
+			}
+			continue
+		}
+
 		if key.Kind() != reflect.String {
 			continue
 		}
@@ -141,8 +150,7 @@ func (c *Codec) fromTypedMap(v interface{}) error {
 		keyType := keyStr[sepIdx+len(c.typeSep):]
 
 		if wrapper, found := c.typeAdaptersStringMap[keyType]; found {
-			ov := indirectInterface(mv.MapIndex(key))
-			nv, err := wrapper.FromString(ov.String())
+			nv, err := wrapper.FromString(v.String())
 			if err != nil {
 				return err
 			}
@@ -164,11 +172,20 @@ func (c *Codec) toTypedMap(v interface{}) (interface{}, error) {
 	mcopy := reflect.MakeMap(mv.Type())
 
 	for _, key := range mv.MapKeys() {
-		if key.Kind() != reflect.String {
+		v := indirectInterface(mv.MapIndex(key))
+
+		if v.Type().Kind() == reflect.Map {
+			nested, err := c.toTypedMap(v.Interface())
+			if err != nil {
+				return nil, err
+			}
+			mcopy.SetMapIndex(key, reflect.ValueOf(nested))
 			continue
 		}
 
-		v := indirectInterface(mv.MapIndex(key))
+		if key.Kind() != reflect.String {
+			continue
+		}
 
 		if wrapper, found := c.typeAdaptersMap[v.Type()]; found {
 			mcopy.SetMapIndex(c.newKey(key, wrapper), reflect.ValueOf(wrapper.Wrap(v.Interface())))

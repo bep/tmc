@@ -6,6 +6,7 @@
 package typedmapcodec_test
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
@@ -33,6 +34,10 @@ func TestRoundtrip(t *testing.T) {
 		// Time
 		"vtime":     time.Now(),
 		"vduration": 3 * time.Second,
+		"nested": map[string]interface{}{
+			"vint":      55,
+			"vduration": 5 * time.Second,
+		},
 	}
 
 	for _, test := range []struct {
@@ -53,6 +58,15 @@ func TestRoundtrip(t *testing.T) {
 				typedmapcodec.WithMarshalUnmarshaler(new(yamlMarshaler)),
 			},
 			func(c *qt.C, data string) { c.Assert(data, qt.Contains, "vduration|time.Duration: 3s") },
+		},
+		{"JSON indent",
+			[]typedmapcodec.Option{
+				typedmapcodec.WithMarshalUnmarshaler(new(jsonMarshalerIndent)),
+			},
+			func(c *qt.C, data string) {
+				c.Log(data)
+				c.Assert(data, qt.Contains, `vduration`)
+			},
 		},
 	} {
 
@@ -102,4 +116,14 @@ func (yamlMarshaler) Marshal(v interface{}) ([]byte, error) {
 
 func (yamlMarshaler) Unmarshal(b []byte, v interface{}) error {
 	return yaml.Unmarshal(b, v)
+}
+
+type jsonMarshalerIndent int
+
+func (jsonMarshalerIndent) Marshal(v interface{}) ([]byte, error) {
+	return json.MarshalIndent(v, "", "  ")
+}
+
+func (jsonMarshalerIndent) Unmarshal(b []byte, v interface{}) error {
+	return json.Unmarshal(b, v)
 }
