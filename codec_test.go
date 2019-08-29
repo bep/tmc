@@ -34,6 +34,7 @@ func TestRoundtrip(t *testing.T) {
 		// Time
 		"vtime":     time.Now(),
 		"vduration": 3 * time.Second,
+		"vsliceint": []int{1, 3, 4},
 		"nested": map[string]interface{}{
 			"vint":      55,
 			"vduration": 5 * time.Second,

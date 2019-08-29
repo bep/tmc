@@ -126,17 +126,16 @@ func (c *Codec) fromTypedMap(v interface{}) error {
 	}
 
 	for _, key := range mv.MapKeys() {
+
 		v := indirectInterface(mv.MapIndex(key))
 
-		if v.Type().Kind() == reflect.Map {
+		switch v.Kind() {
+		case reflect.Map:
 			if err := c.fromTypedMap(v.Interface()); err != nil {
-				return nil
+				return err
 			}
 			continue
-		}
 
-		if key.Kind() != reflect.String {
-			continue
 		}
 
 		keyStr := key.String()
@@ -150,11 +149,29 @@ func (c *Codec) fromTypedMap(v interface{}) error {
 		keyType := keyStr[sepIdx+len(c.typeSep):]
 
 		if wrapper, found := c.typeAdaptersStringMap[keyType]; found {
-			nv, err := wrapper.FromString(v.String())
-			if err != nil {
-				return err
+
+			switch v.Kind() {
+
+			case reflect.Slice:
+				scopy := reflect.MakeSlice(reflect.SliceOf(wrapper.Type()), v.Len(), v.Cap())
+				for i := 0; i < v.Len(); i += 1 {
+					vv := indirectInterface(v.Index(i))
+					nv, err := wrapper.FromString(vv.String())
+					if err != nil {
+						return err
+					}
+					scopy.Index(i).Set(reflect.ValueOf(nv))
+				}
+
+				mv.SetMapIndex(reflect.ValueOf(keyPlain), scopy)
+			default:
+				nv, err := wrapper.FromString(v.String())
+				if err != nil {
+					return err
+				}
+				mv.SetMapIndex(reflect.ValueOf(keyPlain), reflect.ValueOf(nv))
 			}
-			mv.SetMapIndex(reflect.ValueOf(keyPlain), reflect.ValueOf(nv))
+
 			mv.SetMapIndex(key, reflect.Value{})
 		}
 
@@ -162,6 +179,8 @@ func (c *Codec) fromTypedMap(v interface{}) error {
 
 	return nil
 }
+
+var interfaceSliceType = reflect.TypeOf([]interface{}{})
 
 func (c *Codec) toTypedMap(v interface{}) (interface{}, error) {
 	mv := reflect.ValueOf(v)
@@ -174,17 +193,24 @@ func (c *Codec) toTypedMap(v interface{}) (interface{}, error) {
 	for _, key := range mv.MapKeys() {
 		v := indirectInterface(mv.MapIndex(key))
 
-		if v.Type().Kind() == reflect.Map {
+		switch v.Kind() {
+		case reflect.Map:
 			nested, err := c.toTypedMap(v.Interface())
 			if err != nil {
 				return nil, err
 			}
 			mcopy.SetMapIndex(key, reflect.ValueOf(nested))
 			continue
-		}
+		case reflect.Slice:
+			if wrapper, found := c.typeAdaptersMap[v.Type().Elem()]; found {
+				scopy := reflect.MakeSlice(interfaceSliceType, v.Len(), v.Cap())
+				for i := 0; i < v.Len(); i += 1 {
+					scopy.Index(i).Set(reflect.ValueOf(wrapper.Wrap(v.Index(i).Interface())))
+				}
+				mcopy.SetMapIndex(c.newKey(key, wrapper), scopy)
+				continue
+			}
 
-		if key.Kind() != reflect.String {
-			continue
 		}
 
 		if wrapper, found := c.typeAdaptersMap[v.Type()]; found {
