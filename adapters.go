@@ -61,9 +61,6 @@ var (
 			},
 		),
 	}
-
-	typeAdaptersMap       = make(map[reflect.Type]Adapter)
-	typeAdaptersStringMap = make(map[string]Adapter)
 )
 
 // NewAdapter creates a new adapter that wraps the target type.
@@ -159,8 +156,4 @@ func (a adapter) Type() reflect.Type {
 func (a adapter) Wrap(v interface{}) Adapter {
 	a.target = v
 	return &a
-}
-
-func newKey(key reflect.Value, a Adapter) reflect.Value {
-	return reflect.ValueOf(fmt.Sprintf("%s%s%s", key, typeSep, a.Type()))
 }

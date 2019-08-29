@@ -8,27 +8,92 @@ package typedmapcodec
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 )
-
-const typeSep = "|"
 
 // JSONMarshaler encodes and decodes JSON and is the default used in this
 // codec.
 var JSONMarshaler = new(jsonMarshaler)
 
-func New() Codec {
-	return Codec{
-		marshaler: JSONMarshaler,
+// New creates a new Coded with some optional options.
+func New(opts ...Option) (*Codec, error) {
+	c := &Codec{
+		typeSep:               "|",
+		marshaler:             JSONMarshaler,
+		typeAdapters:          DefaultTypeAdapters,
+		typeAdaptersMap:       make(map[reflect.Type]Adapter),
+		typeAdaptersStringMap: make(map[string]Adapter),
+	}
+
+	for _, opt := range opts {
+		if err := opt(c); err != nil {
+			return c, err
+		}
+	}
+
+	for _, w := range c.typeAdapters {
+		tp := w.Type()
+		c.typeAdaptersMap[tp] = w
+		c.typeAdaptersStringMap[tp.String()] = w
+	}
+
+	return c, nil
+}
+
+// Option configures the Codec.
+type Option func(c *Codec) error
+
+// WithTypeSep sets the separator to use before the type information encoded in
+// the key field. Default is "|".
+func WithTypeSep(sep string) func(c *Codec) error {
+	return func(c *Codec) error {
+		if sep == "" {
+			return errors.New("separator cannot be empty")
+		}
+		c.typeSep = sep
+		return nil
 	}
 }
 
-type Codec struct {
-	marshaler MarshalUnmarshaler
+// WithMarshalUnmarshaler sets the MarshalUnmarshaler to use.
+// Default is JSONMarshaler.
+func WithMarshalUnmarshaler(marshaler MarshalUnmarshaler) func(c *Codec) error {
+	return func(c *Codec) error {
+		c.marshaler = marshaler
+		return nil
+	}
 }
 
-func (c Codec) Marshal(v interface{}) ([]byte, error) {
+// WithTypeAdapters sets the type adapters to use. Note that if more than one
+// adapter exists for the same type, the last one will win. This means that
+// if you want to use the default adapters, but override some of them, you
+// can do:
+//
+//   adapters := append(typedmapcodec.DefaultTypeAdapters, mycustomAdapters ...)
+//   codec := typedmapcodec.New(WithTypeAdapters(adapters))
+//
+func WithTypeAdapters(typeAdapters []Adapter) func(c *Codec) error {
+	return func(c *Codec) error {
+		c.typeAdapters = typeAdapters
+		return nil
+	}
+}
+
+// Codec provides methods to marshal and unmarshal a Go map while preserving
+// type information.
+type Codec struct {
+	typeSep               string
+	marshaler             MarshalUnmarshaler
+	typeAdapters          []Adapter
+	typeAdaptersMap       map[reflect.Type]Adapter
+	typeAdaptersStringMap map[string]Adapter
+}
+
+// Marshal accepts a Go map and marshals it to the configured marshaler
+// anntated with type information.
+func (c *Codec) Marshal(v interface{}) ([]byte, error) {
 	m, err := c.toTypedMap(v)
 	if err != nil {
 		return nil, err
@@ -36,14 +101,21 @@ func (c Codec) Marshal(v interface{}) ([]byte, error) {
 	return c.marshaler.Marshal(m)
 }
 
-func (c Codec) Unmarshal(data []byte, v interface{}) error {
+// Unmarshal unmarshals the given data to the given Go map, using
+// any annotated type information found to preserve the type information
+// stored in Marshal.
+func (c *Codec) Unmarshal(data []byte, v interface{}) error {
 	if err := c.marshaler.Unmarshal(data, v); err != nil {
 		return err
 	}
 	return c.fromTypedMap(v)
 }
 
-func (c Codec) fromTypedMap(v interface{}) error {
+func (c *Codec) newKey(key reflect.Value, a Adapter) reflect.Value {
+	return reflect.ValueOf(fmt.Sprintf("%s%s%s", key, c.typeSep, a.Type()))
+}
+
+func (c *Codec) fromTypedMap(v interface{}) error {
 	mv := reflect.ValueOf(v)
 	if mv.Kind() == reflect.Ptr {
 		mv = mv.Elem()
@@ -60,15 +132,15 @@ func (c Codec) fromTypedMap(v interface{}) error {
 
 		keyStr := key.String()
 
-		sepIdx := strings.LastIndex(keyStr, typeSep)
+		sepIdx := strings.LastIndex(keyStr, c.typeSep)
 		if sepIdx == -1 {
 			continue
 		}
 
 		keyPlain := keyStr[:sepIdx]
-		keyType := keyStr[sepIdx+len(typeSep):]
+		keyType := keyStr[sepIdx+len(c.typeSep):]
 
-		if wrapper, found := typeAdaptersStringMap[keyType]; found {
+		if wrapper, found := c.typeAdaptersStringMap[keyType]; found {
 			ov := indirectInterface(mv.MapIndex(key))
 			nv, err := wrapper.FromString(ov.String())
 			if err != nil {
@@ -83,7 +155,7 @@ func (c Codec) fromTypedMap(v interface{}) error {
 	return nil
 }
 
-func (c Codec) toTypedMap(v interface{}) (interface{}, error) {
+func (c *Codec) toTypedMap(v interface{}) (interface{}, error) {
 	mv := reflect.ValueOf(v)
 	if mv.Kind() != reflect.Map {
 		return nil, errors.New("must be a Map")
@@ -98,8 +170,8 @@ func (c Codec) toTypedMap(v interface{}) (interface{}, error) {
 
 		v := indirectInterface(mv.MapIndex(key))
 
-		if wrapper, found := typeAdaptersMap[v.Type()]; found {
-			mcopy.SetMapIndex(newKey(key, wrapper), reflect.ValueOf(wrapper.Wrap(v.Interface())))
+		if wrapper, found := c.typeAdaptersMap[v.Type()]; found {
+			mcopy.SetMapIndex(c.newKey(key, wrapper), reflect.ValueOf(wrapper.Wrap(v.Interface())))
 		} else {
 			mcopy.SetMapIndex(key, v)
 		}
@@ -108,6 +180,8 @@ func (c Codec) toTypedMap(v interface{}) (interface{}, error) {
 	return mcopy.Interface(), nil
 }
 
+// MarshalUnmarshaler is the interface that must be implemented if you want to
+// add support for more than JSON to this codec.
 type MarshalUnmarshaler interface {
 	Marshal(v interface{}) ([]byte, error)
 	Unmarshal(b []byte, v interface{}) error
@@ -115,11 +189,11 @@ type MarshalUnmarshaler interface {
 
 type jsonMarshaler int
 
-func (j jsonMarshaler) Marshal(v interface{}) ([]byte, error) {
+func (jsonMarshaler) Marshal(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-func (j jsonMarshaler) Unmarshal(b []byte, v interface{}) error {
+func (jsonMarshaler) Unmarshal(b []byte, v interface{}) error {
 	return json.Unmarshal(b, v)
 }
 
@@ -132,12 +206,4 @@ func indirectInterface(v reflect.Value) reflect.Value {
 		return reflect.Value{}
 	}
 	return v.Elem()
-}
-
-func init() {
-	for _, w := range DefaultTypeAdapters {
-		tp := w.Type()
-		typeAdaptersMap[tp] = w
-		typeAdaptersStringMap[tp.String()] = w
-	}
 }

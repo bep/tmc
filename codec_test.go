@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/bep/typedmapcodec"
 
 	qt "github.com/frankban/quicktest"
@@ -33,15 +35,48 @@ func TestRoundtrip(t *testing.T) {
 		"vduration": 3 * time.Second,
 	}
 
-	codec := typedmapcodec.New()
+	for _, test := range []struct {
+		name       string
+		options    []typedmapcodec.Option
+		dataAssert func(c *qt.C, data string)
+	}{
+		{"Default", nil,
+			func(c *qt.C, data string) { c.Assert(data, qt.Contains, `{"vduration|time.Duration":"3s"`) }},
+		{"Custom type separator",
+			[]typedmapcodec.Option{
+				typedmapcodec.WithTypeSep("TYPE:"),
+			},
+			func(c *qt.C, data string) { c.Assert(data, qt.Contains, "TYPE:") },
+		},
+		{"YAML",
+			[]typedmapcodec.Option{
+				typedmapcodec.WithMarshalUnmarshaler(new(yamlMarshaler)),
+			},
+			func(c *qt.C, data string) { c.Assert(data, qt.Contains, "vduration|time.Duration: 3s") },
+		},
+	} {
 
-	data, err := codec.Marshal(src)
-	c.Assert(err, qt.IsNil)
+		test := test
+		c.Run(test.name, func(c *qt.C) {
+			c.Parallel()
 
-	dst := make(map[string]interface{})
-	c.Assert(codec.Unmarshal(data, &dst), qt.IsNil)
+			codec, err := typedmapcodec.New(test.options...)
+			c.Assert(err, qt.IsNil)
 
-	c.Assert(dst, eq, src)
+			data, err := codec.Marshal(src)
+			c.Assert(err, qt.IsNil)
+			if test.dataAssert != nil {
+				test.dataAssert(c, string(data))
+			}
+
+			dst := make(map[string]interface{})
+			c.Assert(codec.Unmarshal(data, &dst), qt.IsNil)
+
+			c.Assert(dst, eq, src)
+		})
+
+	}
+
 }
 
 var eq = qt.CmpEquals(
@@ -57,3 +92,14 @@ var eq = qt.CmpEquals(
 		return v1.Unix() == v2.Unix()
 	}),
 )
+
+type yamlMarshaler int
+
+func (yamlMarshaler) Marshal(v interface{}) ([]byte, error) {
+	return yaml.Marshal(v)
+
+}
+
+func (yamlMarshaler) Unmarshal(b []byte, v interface{}) error {
+	return yaml.Unmarshal(b, v)
+}
