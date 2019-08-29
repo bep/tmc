@@ -3,7 +3,7 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-package typedmapcodec_test
+package typedmapcodec
 
 import (
 	"encoding/json"
@@ -12,8 +12,6 @@ import (
 	"time"
 
 	yaml "gopkg.in/yaml.v2"
-
-	"github.com/bep/typedmapcodec"
 
 	qt "github.com/frankban/quicktest"
 	"github.com/google/go-cmp/cmp"
@@ -39,34 +37,40 @@ func TestRoundtrip(t *testing.T) {
 			"vint":      55,
 			"vduration": 5 * time.Second,
 		},
+		"nested-typed-int": map[string]int{
+			"vint": 42,
+		},
+		"nested-typed-duration": map[string]time.Duration{
+			"v1": 5 * time.Second,
+			"v2": 10 * time.Second,
+		},
 	}
 
 	for _, test := range []struct {
 		name       string
-		options    []typedmapcodec.Option
+		options    []Option
 		dataAssert func(c *qt.C, data string)
 	}{
 		{"Default", nil,
-			func(c *qt.C, data string) { c.Assert(data, qt.Contains, `{"vduration|time.Duration":"3s"`) }},
+			func(c *qt.C, data string) { c.Assert(data, qt.Contains, `{"nested":{"vduration|time.Duration":"5s"`) }},
 		{"Custom type separator",
-			[]typedmapcodec.Option{
-				typedmapcodec.WithTypeSep("TYPE:"),
+			[]Option{
+				WithTypeSep("TYPE:"),
 			},
 			func(c *qt.C, data string) { c.Assert(data, qt.Contains, "TYPE:") },
 		},
 		{"YAML",
-			[]typedmapcodec.Option{
-				typedmapcodec.WithMarshalUnmarshaler(new(yamlMarshaler)),
+			[]Option{
+				WithMarshalUnmarshaler(new(yamlMarshaler)),
 			},
 			func(c *qt.C, data string) { c.Assert(data, qt.Contains, "vduration|time.Duration: 3s") },
 		},
 		{"JSON indent",
-			[]typedmapcodec.Option{
-				typedmapcodec.WithMarshalUnmarshaler(new(jsonMarshalerIndent)),
+			[]Option{
+				WithMarshalUnmarshaler(new(jsonMarshalerIndent)),
 			},
 			func(c *qt.C, data string) {
-				c.Log(data)
-				c.Assert(data, qt.Contains, `vduration`)
+
 			},
 		},
 	} {
@@ -75,11 +79,12 @@ func TestRoundtrip(t *testing.T) {
 		c.Run(test.name, func(c *qt.C) {
 			c.Parallel()
 
-			codec, err := typedmapcodec.New(test.options...)
+			codec, err := New(test.options...)
 			c.Assert(err, qt.IsNil)
 
 			data, err := codec.Marshal(src)
 			c.Assert(err, qt.IsNil)
+			c.Log(string(data))
 			if test.dataAssert != nil {
 				test.dataAssert(c, string(data))
 			}
@@ -92,6 +97,25 @@ func TestRoundtrip(t *testing.T) {
 
 	}
 
+}
+
+func TestErrors(t *testing.T) {
+	c := qt.New(t)
+	codec, err := New()
+	c.Assert(err, qt.IsNil)
+	marshal := func(v interface{}) error {
+		_, err := codec.Marshal(v)
+		return err
+	}
+
+	// OK
+	c.Assert(marshal(map[string]interface{}{"32": "a"}), qt.IsNil)
+	c.Assert(marshal(map[string]int{"32": 32}), qt.IsNil)
+
+	// Should fail
+	c.Assert(marshal([]string{"a"}), qt.Not(qt.IsNil))
+	c.Assert(marshal(map[int]interface{}{32: "a"}), qt.Not(qt.IsNil))
+	c.Assert(marshal(map[string]interface{}{"a": map[int]string{32: "32"}}), qt.Not(qt.IsNil))
 }
 
 var eq = qt.CmpEquals(
@@ -119,6 +143,7 @@ func (yamlMarshaler) Unmarshal(b []byte, v interface{}) error {
 	return yaml.Unmarshal(b, v)
 }
 
+// Useful for debugging
 type jsonMarshalerIndent int
 
 func (jsonMarshalerIndent) Marshal(v interface{}) ([]byte, error) {

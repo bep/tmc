@@ -77,9 +77,9 @@ func NewAdapter(
 	targetValue := reflect.ValueOf(target)
 	targetType := targetValue.Type()
 
-	// Need the pointer to see the TextUnmarshaler implementation.
 	wasPointer := targetType.Kind() == reflect.Ptr
 	if !wasPointer {
+		// Need the pointer to see the TextUnmarshaler implementation.
 		v := targetValue
 		targetValue = reflect.New(targetType)
 		targetValue.Elem().Set(v)

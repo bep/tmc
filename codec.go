@@ -108,119 +108,176 @@ func (c *Codec) Unmarshal(data []byte, v interface{}) error {
 	if err := c.marshaler.Unmarshal(data, v); err != nil {
 		return err
 	}
-	return c.fromTypedMap(v)
+	_, err := c.fromTypedMap(v)
+	return err
 }
 
 func (c *Codec) newKey(key reflect.Value, a Adapter) reflect.Value {
 	return reflect.ValueOf(fmt.Sprintf("%s%s%s", key, c.typeSep, a.Type()))
 }
 
-func (c *Codec) fromTypedMap(v interface{}) error {
-	mv := reflect.ValueOf(v)
-	if mv.Kind() == reflect.Ptr {
-		mv = mv.Elem()
+func (c *Codec) fromTypedMap(mi interface{}) (reflect.Value, error) {
+	m := reflect.ValueOf(mi)
+	if m.Kind() == reflect.Ptr {
+		m = m.Elem()
 	}
 
-	if mv.Kind() != reflect.Map {
-		return errors.New("must be a Map")
+	if m.Kind() != reflect.Map {
+		return reflect.Value{}, errors.New("must be a Map")
 	}
 
-	for _, key := range mv.MapKeys() {
-
-		v := indirectInterface(mv.MapIndex(key))
-
-		switch v.Kind() {
-		case reflect.Map:
-			if err := c.fromTypedMap(v.Interface()); err != nil {
-				return err
-			}
-			continue
-
+	keyKind := m.Type().Key().Kind()
+	if keyKind == reflect.Interface {
+		// We only support string keys.
+		// YAML creates map[interface {}]interface {}, so try to convert it.
+		var err error
+		m, err = c.toStringMap(m)
+		if err != nil {
+			return reflect.Value{}, err
 		}
+	}
 
-		keyStr := key.String()
+	for _, key := range m.MapKeys() {
+
+		v := indirectInterface(m.MapIndex(key))
+
+		var (
+			keyStr   = key.String()
+			keyPlain string
+			keyType  string
+		)
 
 		sepIdx := strings.LastIndex(keyStr, c.typeSep)
-		if sepIdx == -1 {
+
+		if sepIdx != -1 {
+			keyPlain = keyStr[:sepIdx]
+			keyType = keyStr[sepIdx+len(c.typeSep):]
+		}
+
+		adapter, found := c.typeAdaptersStringMap[keyType]
+
+		if !found {
+			if v.Kind() == reflect.Map {
+				var err error
+				v, err = c.fromTypedMap(v.Interface())
+				if err != nil {
+					return reflect.Value{}, err
+				}
+				m.SetMapIndex(key, v)
+			}
 			continue
 		}
 
-		keyPlain := keyStr[:sepIdx]
-		keyType := keyStr[sepIdx+len(c.typeSep):]
-
-		if wrapper, found := c.typeAdaptersStringMap[keyType]; found {
-
-			switch v.Kind() {
-
-			case reflect.Slice:
-				scopy := reflect.MakeSlice(reflect.SliceOf(wrapper.Type()), v.Len(), v.Cap())
-				for i := 0; i < v.Len(); i += 1 {
-					vv := indirectInterface(v.Index(i))
-					nv, err := wrapper.FromString(vv.String())
-					if err != nil {
-						return err
-					}
-					scopy.Index(i).Set(reflect.ValueOf(nv))
-				}
-
-				mv.SetMapIndex(reflect.ValueOf(keyPlain), scopy)
-			default:
-				nv, err := wrapper.FromString(v.String())
+		switch v.Kind() {
+		case reflect.Map:
+			mm := reflect.MakeMap(reflect.MapOf(stringType, adapter.Type()))
+			for _, key := range v.MapKeys() {
+				vv := indirectInterface(v.MapIndex(key))
+				nv, err := adapter.FromString(vv.String())
 				if err != nil {
-					return err
+					return reflect.Value{}, err
 				}
-				mv.SetMapIndex(reflect.ValueOf(keyPlain), reflect.ValueOf(nv))
+				mm.SetMapIndex(indirectInterface(key), reflect.ValueOf(nv))
+			}
+			m.SetMapIndex(reflect.ValueOf(keyPlain), mm)
+		case reflect.Slice:
+			slice := reflect.MakeSlice(reflect.SliceOf(adapter.Type()), v.Len(), v.Cap())
+			for i := 0; i < v.Len(); i++ {
+				vv := indirectInterface(v.Index(i))
+				nv, err := adapter.FromString(vv.String())
+				if err != nil {
+					return reflect.Value{}, err
+				}
+				slice.Index(i).Set(reflect.ValueOf(nv))
 			}
 
-			mv.SetMapIndex(key, reflect.Value{})
+			m.SetMapIndex(reflect.ValueOf(keyPlain), slice)
+		default:
+			nv, err := adapter.FromString(v.String())
+			if err != nil {
+				return reflect.Value{}, err
+			}
+			m.SetMapIndex(reflect.ValueOf(keyPlain), reflect.ValueOf(nv))
 		}
 
+		m.SetMapIndex(key, reflect.Value{})
+
 	}
 
-	return nil
+	return m, nil
 }
 
-var interfaceSliceType = reflect.TypeOf([]interface{}{})
+var (
+	interfaceMapType   = reflect.TypeOf(make(map[string]interface{}))
+	interfaceSliceType = reflect.TypeOf([]interface{}{})
+	stringType         = reflect.TypeOf("")
+)
 
-func (c *Codec) toTypedMap(v interface{}) (interface{}, error) {
-	mv := reflect.ValueOf(v)
-	if mv.Kind() != reflect.Map {
-		return nil, errors.New("must be a Map")
+func (c *Codec) toTypedMap(mi interface{}) (interface{}, error) {
+
+	mv := reflect.ValueOf(mi)
+
+	if mv.Kind() != reflect.Map || mv.Type().Key().Kind() != reflect.String {
+		return nil, errors.New("must provide a map with string keys")
 	}
 
-	mcopy := reflect.MakeMap(mv.Type())
+	m := reflect.MakeMap(interfaceMapType)
 
 	for _, key := range mv.MapKeys() {
 		v := indirectInterface(mv.MapIndex(key))
 
 		switch v.Kind() {
+
 		case reflect.Map:
-			nested, err := c.toTypedMap(v.Interface())
-			if err != nil {
-				return nil, err
+
+			if wrapper, found := c.typeAdaptersMap[v.Type().Elem()]; found {
+				mm := reflect.MakeMap(interfaceMapType)
+				for _, key := range v.MapKeys() {
+					mm.SetMapIndex(key, reflect.ValueOf(wrapper.Wrap(v.MapIndex(key).Interface())))
+				}
+				m.SetMapIndex(c.newKey(key, wrapper), mm)
+			} else {
+				nested, err := c.toTypedMap(v.Interface())
+				if err != nil {
+					return nil, err
+				}
+				m.SetMapIndex(key, reflect.ValueOf(nested))
 			}
-			mcopy.SetMapIndex(key, reflect.ValueOf(nested))
 			continue
 		case reflect.Slice:
-			if wrapper, found := c.typeAdaptersMap[v.Type().Elem()]; found {
-				scopy := reflect.MakeSlice(interfaceSliceType, v.Len(), v.Cap())
-				for i := 0; i < v.Len(); i += 1 {
-					scopy.Index(i).Set(reflect.ValueOf(wrapper.Wrap(v.Index(i).Interface())))
+			if adapter, found := c.typeAdaptersMap[v.Type().Elem()]; found {
+				slice := reflect.MakeSlice(interfaceSliceType, v.Len(), v.Cap())
+				for i := 0; i < v.Len(); i++ {
+					slice.Index(i).Set(reflect.ValueOf(adapter.Wrap(v.Index(i).Interface())))
 				}
-				mcopy.SetMapIndex(c.newKey(key, wrapper), scopy)
+				m.SetMapIndex(c.newKey(key, adapter), slice)
 				continue
 			}
-
 		}
 
-		if wrapper, found := c.typeAdaptersMap[v.Type()]; found {
-			mcopy.SetMapIndex(c.newKey(key, wrapper), reflect.ValueOf(wrapper.Wrap(v.Interface())))
+		if adapter, found := c.typeAdaptersMap[v.Type()]; found {
+			m.SetMapIndex(c.newKey(key, adapter), reflect.ValueOf(adapter.Wrap(v.Interface())))
 		} else {
-			mcopy.SetMapIndex(key, v)
+			m.SetMapIndex(key, v)
 		}
 	}
 
-	return mcopy.Interface(), nil
+	return m.Interface(), nil
+}
+
+func (c *Codec) toStringMap(mi reflect.Value) (reflect.Value, error) {
+	elemType := mi.Type().Elem()
+	m := reflect.MakeMap(reflect.MapOf(stringType, elemType))
+	for _, key := range mi.MapKeys() {
+		key = indirectInterface(key)
+		if key.Kind() != reflect.String {
+			return reflect.Value{}, errors.New("this library supports only string keys in maps")
+		}
+		vv := mi.MapIndex(key)
+		m.SetMapIndex(reflect.ValueOf(key.String()), vv)
+	}
+
+	return m, nil
 }
 
 // MarshalUnmarshaler is the interface that must be implemented if you want to
