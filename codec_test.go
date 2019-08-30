@@ -20,31 +20,7 @@ import (
 func TestRoundtrip(t *testing.T) {
 	c := qt.New(t)
 
-	src := map[string]interface{}{
-		"vstring":     "Hello1",
-		"vstring|":    "Hello2",
-		"vstring|foo": "Hello3",
-		// Numbers
-		"vint":     32,
-		"vfloat32": float32(3.14159),
-		"vfloat64": float64(3.14159),
-		"vrat":     big.NewRat(1, 2),
-		// Time
-		"vtime":     time.Now(),
-		"vduration": 3 * time.Second,
-		"vsliceint": []int{1, 3, 4},
-		"nested": map[string]interface{}{
-			"vint":      55,
-			"vduration": 5 * time.Second,
-		},
-		"nested-typed-int": map[string]int{
-			"vint": 42,
-		},
-		"nested-typed-duration": map[string]time.Duration{
-			"v1": 5 * time.Second,
-			"v2": 10 * time.Second,
-		},
-	}
+	src := newTestMap()
 
 	for _, test := range []struct {
 		name       string
@@ -116,6 +92,73 @@ func TestErrors(t *testing.T) {
 	c.Assert(marshal([]string{"a"}), qt.Not(qt.IsNil))
 	c.Assert(marshal(map[int]interface{}{32: "a"}), qt.Not(qt.IsNil))
 	c.Assert(marshal(map[string]interface{}{"a": map[int]string{32: "32"}}), qt.Not(qt.IsNil))
+}
+
+func BenchmarkCodec(b *testing.B) {
+	b.Run("JSON regular", func(b *testing.B) {
+		b.StopTimer()
+		mi := newTestMap()
+		b.StartTimer()
+		for i := 0; i < b.N; i++ {
+			data, err := json.Marshal(mi)
+			if err != nil {
+				b.Fatal(err)
+			}
+			m := make(map[string]interface{})
+			if err := json.Unmarshal(data, &m); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("JSON typed", func(b *testing.B) {
+		b.StopTimer()
+		mi := newTestMap()
+		c, err := New()
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.StartTimer()
+		for i := 0; i < b.N; i++ {
+			data, err := c.Marshal(mi)
+			if err != nil {
+				b.Fatal(err)
+			}
+			m := make(map[string]interface{})
+			if err := c.Unmarshal(data, &m); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+}
+
+func newTestMap() map[string]interface{} {
+	return map[string]interface{}{
+		"vstring":     "Hello1",
+		"vstring|":    "Hello2",
+		"vstring|foo": "Hello3",
+		// Numbers
+		"vint":     32,
+		"vfloat32": float32(3.14159),
+		"vfloat64": float64(3.14159),
+		"vrat":     big.NewRat(1, 2),
+		// Time
+		"vtime":     time.Now(),
+		"vduration": 3 * time.Second,
+		"vsliceint": []int{1, 3, 4},
+		"nested": map[string]interface{}{
+			"vint":      55,
+			"vduration": 5 * time.Second,
+		},
+		"nested-typed-int": map[string]int{
+			"vint": 42,
+		},
+		"nested-typed-duration": map[string]time.Duration{
+			"v1": 5 * time.Second,
+			"v2": 10 * time.Second,
+		},
+	}
 }
 
 var eq = qt.CmpEquals(
