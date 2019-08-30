@@ -140,7 +140,6 @@ func newTestMap() map[string]interface{} {
 		"vstring|foo": "Hello3",
 		// Numbers
 		"vint":     32,
-		"vfloat32": float32(3.14159),
 		"vfloat64": float64(3.14159),
 		"vrat":     big.NewRat(1, 2),
 		// Time

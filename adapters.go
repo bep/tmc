@@ -39,19 +39,6 @@ var (
 		// Numbers
 		NewAdapter(big.NewRat(1, 2), nil, nil),
 		NewAdapter(
-			float32(3.14),
-			func(s string) (interface{}, error) {
-				v, err := strconv.ParseFloat(s, 32)
-				if err != nil {
-					return nil, err
-				}
-				return float32(v), nil
-			},
-			func(v interface{}) (string, error) {
-				return fmt.Sprintf("%f", v), nil
-			},
-		),
-		NewAdapter(
 			int(32),
 			func(s string) (interface{}, error) {
 				return strconv.Atoi(s)
