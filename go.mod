@@ -1,4 +1,4 @@
-module github.com/bep/typedmapcodec
+module github.com/bep/tmc
 
 go 1.12
 
