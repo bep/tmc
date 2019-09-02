@@ -2,6 +2,7 @@
 <p align="center">Provides round-trip serialization of typed Go maps.<p>
 <p align="center"><a href="https://godoc.org/github.com/bep/tmc"><img src="https://godoc.org/github.com/bep/tmc?status.svg" /></a>
 <a href="https://goreportcard.com/report/github.com/bep/tmc"><img src="https://goreportcard.com/badge/github.com/bep/tmc" /></a>
+<a href="https://codecov.io/gh/bep/tmc"><img src="https://codecov.io/gh/bep/tmc/branch/master/graph/badge.svg" /></a>
 <a href="https://github.com/bep/tmc/actions"><img src="https://action-badges.now.sh/bep/tmc?workflow=test" /></a></p>
 
 
