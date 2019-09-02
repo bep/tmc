@@ -1,10 +1,19 @@
-<h3 align="center">Codec for a Typed Map</h3>
+<h2 align="center">Codec for a Typed Map</h2>
 <p align="center">Provides round-trip serialization of typed Go maps.<p>
-<p align="center"><a href="https://github.com/bep/typedmapcodec/actions"><img src="https://action-badges.now.sh/bep/typedmapcodec" /></a></p>
+<p align="center"><a href="https://godoc.org/github.com/bep/tmc"><img src="https://godoc.org/github.com/bep/tmc?status.svg" /></a>
+<a href="https://goreportcard.com/report/github.com/bep/tmc"><img src="https://goreportcard.com/badge/github.com/bep/tmc" /></a>
+<a href="https://github.com/bep/tmc/actions"><img src="https://action-badges.now.sh/bep/tmc?workflow=test" /></a></p>
 
-#### Why
 
-Text based serialization formats liek JSON and YAML are convenient, but when used with Go maps, most type information gets lost in translation. Listed below is a round-trip example in JSON (see https://play.golang.org/p/zxt-wi4Ljz3 for a runnable version):
+### Using
+
+See the [GoDoc](https://godoc.org/github.com/bep/tmc) for some basic examples and how to configure custom codec, adapters etc.
+
+### Why?
+
+Text based serialization formats liek JSON and YAML are convenient, but when used with Go maps, most type information gets lost in translation.
+
+Listed below is a round-trip example in JSON (see https://play.golang.org/p/zxt-wi4Ljz3 for a runnable version):
 
 ```go
 package main
@@ -88,9 +97,11 @@ And that is very different from the origin:
 * `time.Now` and `*big.Rat` are strings
 * Slices are `[]interface {}`, maps `map[string]interface {}`
 
-So, for structs, you can work around the limitations above with custom `MarshalJSON`, `UnmarshalJSON`, `MarshalText` and `UnmarshalText`. For the commonly used flexible and schema-less`map[string]interface {}` this is, as I'm aware of, not an option.
+So, for structs, you can work around some of the limitations above with custom `MarshalJSON`, `UnmarshalJSON`, `MarshalText` and `UnmarshalText`. 
 
-Using this library, the above can be written to (see https://play.golang.org/p/F1nHr2hQbP4 for a runnable example):
+For the commonly used flexible and schema-less`map[string]interface {}` this is, as I'm aware of, not an option.
+
+Using this library, the above can be written to (see https://play.golang.org/p/PlDetQP5aWd for a runnable example):
 
 ```go
 package main
@@ -100,7 +111,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/bep/typedmapcodec"
+	"github.com/bep/tmc"
 
 	"github.com/kr/pretty"
 )
@@ -126,7 +137,7 @@ func main() {
 		},
 	}
 
-	c, err := typedmapcodec.New()
+	c, err := tmc.New()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -178,9 +189,9 @@ map[string]interface {}{
 ```
 
 
-#### Performance
+### Performance
 
-The implementation is easy to reason aobut, but It's not particulary fast and probably not suited for _big data_. As imple benchmark with a roundtrip marshal/unmarshal is included:
+The implementation is easy to reason aobut (it uses reflection), but It's not particulary fast and probably not suited for _big data_. As imple benchmark with a roundtrip marshal/unmarshal is included:
 
 ```bash
 BenchmarkCodec/JSON_regular-4         	   50000	     27523 ns/op	    6742 B/op	     171 allocs/op

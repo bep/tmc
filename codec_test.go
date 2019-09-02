@@ -60,7 +60,7 @@ func TestRoundtrip(t *testing.T) {
 
 			data, err := codec.Marshal(src)
 			c.Assert(err, qt.IsNil)
-			c.Log(string(data))
+			//c.Log(string(data))
 			if test.dataAssert != nil {
 				test.dataAssert(c, string(data))
 			}
