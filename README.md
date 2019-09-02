@@ -5,13 +5,13 @@
 <a href="https://github.com/bep/tmc/actions"><img src="https://action-badges.now.sh/bep/tmc?workflow=test" /></a></p>
 
 
-### Using
+### How to Use
 
 See the [GoDoc](https://godoc.org/github.com/bep/tmc) for some basic examples and how to configure custom codec, adapters etc.
 
 ### Why?
 
-Text based serialization formats liek JSON and YAML are convenient, but when used with Go maps, most type information gets lost in translation.
+Text based serialization formats like JSON and YAML are convenient, but when used with Go maps, most type information gets lost in translation.
 
 Listed below is a round-trip example in JSON (see https://play.golang.org/p/zxt-wi4Ljz3 for a runnable version):
 
@@ -191,7 +191,7 @@ map[string]interface {}{
 
 ### Performance
 
-The implementation is easy to reason aobut (it uses reflection), but It's not particulary fast and probably not suited for _big data_. As imple benchmark with a roundtrip marshal/unmarshal is included:
+The implementation is easy to reason aobut (it uses reflection), but It's not particulary fast and probably not suited for _big data_. A simple benchmark with a roundtrip marshal/unmarshal is included. On my MacBook it shows:
 
 ```bash
 BenchmarkCodec/JSON_regular-4         	   50000	     27523 ns/op	    6742 B/op	     171 allocs/op
