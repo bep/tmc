@@ -100,7 +100,7 @@ And that is very different from the origin:
 
 So, for structs, you can work around some of the limitations above with custom `MarshalJSON`, `UnmarshalJSON`, `MarshalText` and `UnmarshalText`. 
 
-For the commonly used flexible and schema-less`map[string]interface {}` this is, as I'm aware of, not an option.
+For the commonly used flexible and schema-less `map[string]interface {}` this is, as I'm aware of, not an option.
 
 Using this library, the above can be written to (see https://play.golang.org/p/PlDetQP5aWd for a runnable example):
 
@@ -192,7 +192,7 @@ map[string]interface {}{
 
 ### Performance
 
-The implementation is easy to reason aobut (it uses reflection), but It's not particulary fast and probably not suited for _big data_. A simple benchmark with a roundtrip marshal/unmarshal is included. On my MacBook it shows:
+The implementation is easy to reason about (it uses reflection), but It's not particulary fast and probably not suited for _big data_. A simple benchmark with a roundtrip marshal/unmarshal is included. On my MacBook it shows:
 
 ```bash
 BenchmarkCodec/JSON_regular-4         	   50000	     27523 ns/op	    6742 B/op	     171 allocs/op
