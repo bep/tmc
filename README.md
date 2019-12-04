@@ -195,6 +195,7 @@ map[string]interface {}{
 The implementation is easy to reason about (it uses reflection), but It's not particulary fast and probably not suited for _big data_. A simple benchmark with a roundtrip marshal/unmarshal is included. On my MacBook it shows:
 
 ```bash
-BenchmarkCodec/JSON_regular-4         	   50000	     27523 ns/op	    6742 B/op	     171 allocs/op
-BenchmarkCodec/JSON_typed-4           	   20000	     66644 ns/op	   16234 B/op	     411 allocs/op
+BenchmarkCodec/JSON_regular-16         	   63921	     16261 ns/op	    6486 B/op	     163 allocs/op
+BenchmarkCodec/JSON_typed-16           	   31791	     37396 ns/op	   14538 B/op	     387 allocs/op
 ```
+
