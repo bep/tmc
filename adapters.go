@@ -19,10 +19,10 @@ import (
 //
 // The simples way to create new adapters is via the NewAdapter function.
 type Adapter interface {
-	FromString(s string) (interface{}, error)
+	FromString(s string) (any, error)
 	MarshalText() (text []byte, err error)
 	Type() reflect.Type
-	Wrap(v interface{}) Adapter
+	Wrap(v any) Adapter
 }
 
 // DefaultTypeAdapters contains the default set of type adapters.
@@ -31,18 +31,18 @@ var DefaultTypeAdapters = []Adapter{
 	NewAdapter(time.Now(), nil, nil),
 	NewAdapter(
 		3*time.Hour,
-		func(s string) (interface{}, error) { return time.ParseDuration(s) },
-		func(v interface{}) (string, error) { return v.(time.Duration).String(), nil },
+		func(s string) (any, error) { return time.ParseDuration(s) },
+		func(v any) (string, error) { return v.(time.Duration).String(), nil },
 	),
 
 	// Numbers
 	NewAdapter(big.NewRat(1, 2), nil, nil),
 	NewAdapter(
 		int(32),
-		func(s string) (interface{}, error) {
+		func(s string) (any, error) {
 			return strconv.Atoi(s)
 		},
-		func(v interface{}) (string, error) {
+		func(v any) (string, error) {
 			return strconv.Itoa(v.(int)), nil
 		},
 	),
@@ -55,9 +55,9 @@ var DefaultTypeAdapters = []Adapter{
 //
 // It will panic if it can not be created.
 func NewAdapter(
-	target interface{},
-	fromString func(s string) (interface{}, error),
-	toString func(v interface{}) (string, error),
+	target any,
+	fromString func(s string) (any, error),
+	toString func(v any) (string, error),
 ) Adapter {
 	targetValue := reflect.ValueOf(target)
 	targetType := targetValue.Type()
@@ -72,7 +72,7 @@ func NewAdapter(
 
 	if fromString == nil {
 		if _, ok := targetValue.Interface().(encoding.TextUnmarshaler); ok {
-			fromString = func(s string) (interface{}, error) {
+			fromString = func(s string) (any, error) {
 				typ := targetType
 				if typ.Kind() == reflect.Ptr {
 					typ = typ.Elem()
@@ -94,15 +94,15 @@ func NewAdapter(
 		}
 	}
 
-	var marshalText func(v interface{}) ([]byte, error)
+	var marshalText func(v any) ([]byte, error)
 
 	if toString != nil {
-		marshalText = func(v interface{}) ([]byte, error) {
+		marshalText = func(v any) ([]byte, error) {
 			s, err := toString(v)
 			return []byte(s), err
 		}
 	} else if _, ok := target.(encoding.TextMarshaler); ok {
-		marshalText = func(v interface{}) ([]byte, error) {
+		marshalText = func(v any) ([]byte, error) {
 			return v.(encoding.TextMarshaler).MarshalText()
 		}
 	} else {
@@ -119,14 +119,14 @@ func NewAdapter(
 var _ Adapter = (*adapter)(nil)
 
 type adapter struct {
-	fromString  func(s string) (interface{}, error)
-	marshalText func(v interface{}) (text []byte, err error)
+	fromString  func(s string) (any, error)
+	marshalText func(v any) (text []byte, err error)
 	targetType  reflect.Type
 
-	target interface{}
+	target any
 }
 
-func (a *adapter) FromString(s string) (interface{}, error) {
+func (a *adapter) FromString(s string) (any, error) {
 	return a.fromString(s)
 }
 
@@ -138,7 +138,7 @@ func (a adapter) Type() reflect.Type {
 	return a.targetType
 }
 
-func (a adapter) Wrap(v interface{}) Adapter {
+func (a adapter) Wrap(v any) Adapter {
 	a.target = v
 	return &a
 }

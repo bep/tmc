@@ -55,7 +55,6 @@ func TestRoundtrip(t *testing.T) {
 		},
 	} {
 
-		test := test
 		c.Run(test.name, func(c *qt.C) {
 			c.Parallel()
 
@@ -69,7 +68,7 @@ func TestRoundtrip(t *testing.T) {
 				test.dataAssert(c, string(data))
 			}
 
-			dst := make(map[string]interface{})
+			dst := make(map[string]any)
 			c.Assert(codec.Unmarshal(data, &dst), qt.IsNil)
 
 			c.Assert(dst, eq, src)
@@ -82,19 +81,19 @@ func TestErrors(t *testing.T) {
 	c := qt.New(t)
 	codec, err := New()
 	c.Assert(err, qt.IsNil)
-	marshal := func(v interface{}) error {
+	marshal := func(v any) error {
 		_, err := codec.Marshal(v)
 		return err
 	}
 
 	// OK
-	c.Assert(marshal(map[string]interface{}{"32": "a"}), qt.IsNil)
+	c.Assert(marshal(map[string]any{"32": "a"}), qt.IsNil)
 	c.Assert(marshal(map[string]int{"32": 32}), qt.IsNil)
 
 	// Should fail
 	c.Assert(marshal([]string{"a"}), qt.Not(qt.IsNil))
-	c.Assert(marshal(map[int]interface{}{32: "a"}), qt.Not(qt.IsNil))
-	c.Assert(marshal(map[string]interface{}{"a": map[int]string{32: "32"}}), qt.Not(qt.IsNil))
+	c.Assert(marshal(map[int]any{32: "a"}), qt.Not(qt.IsNil))
+	c.Assert(marshal(map[string]any{"a": map[int]string{32: "32"}}), qt.Not(qt.IsNil))
 }
 
 func BenchmarkCodec(b *testing.B) {
@@ -107,7 +106,7 @@ func BenchmarkCodec(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			m := make(map[string]interface{})
+			m := make(map[string]any)
 			if err := json.Unmarshal(data, &m); err != nil {
 				b.Fatal(err)
 			}
@@ -127,7 +126,7 @@ func BenchmarkCodec(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			m := make(map[string]interface{})
+			m := make(map[string]any)
 			if err := c.Unmarshal(data, &m); err != nil {
 				b.Fatal(err)
 			}
@@ -135,8 +134,8 @@ func BenchmarkCodec(b *testing.B) {
 	})
 }
 
-func newTestMap() map[string]interface{} {
-	return map[string]interface{}{
+func newTestMap() map[string]any {
+	return map[string]any{
 		"vstring":     "Hello1",
 		"vstring|":    "Hello2",
 		"vstring|foo": "Hello3",
@@ -148,7 +147,7 @@ func newTestMap() map[string]interface{} {
 		"vtime":     time.Now(),
 		"vduration": 3 * time.Second,
 		"vsliceint": []int{1, 3, 4},
-		"nested": map[string]interface{}{
+		"nested": map[string]any{
 			"vint":      55,
 			"vduration": 5 * time.Second,
 		},
@@ -178,21 +177,21 @@ var eq = qt.CmpEquals(
 
 type yamlMarshaler int
 
-func (yamlMarshaler) Marshal(v interface{}) ([]byte, error) {
+func (yamlMarshaler) Marshal(v any) ([]byte, error) {
 	return yaml.Marshal(v)
 }
 
-func (yamlMarshaler) Unmarshal(b []byte, v interface{}) error {
+func (yamlMarshaler) Unmarshal(b []byte, v any) error {
 	return yaml.Unmarshal(b, v)
 }
 
 // Useful for debugging
 type jsonMarshalerIndent int
 
-func (jsonMarshalerIndent) Marshal(v interface{}) ([]byte, error) {
+func (jsonMarshalerIndent) Marshal(v any) ([]byte, error) {
 	return json.MarshalIndent(v, "", "  ")
 }
 
-func (jsonMarshalerIndent) Unmarshal(b []byte, v interface{}) error {
+func (jsonMarshalerIndent) Unmarshal(b []byte, v any) error {
 	return json.Unmarshal(b, v)
 }

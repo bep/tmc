@@ -92,7 +92,7 @@ type Codec struct {
 
 // Marshal accepts a Go map and marshals it to the configured marshaler
 // anntated with type information.
-func (c *Codec) Marshal(v interface{}) ([]byte, error) {
+func (c *Codec) Marshal(v any) ([]byte, error) {
 	m, err := c.toTypedMap(v)
 	if err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ func (c *Codec) Marshal(v interface{}) ([]byte, error) {
 // Unmarshal unmarshals the given data to the given Go map, using
 // any annotated type information found to preserve the type information
 // stored in Marshal.
-func (c *Codec) Unmarshal(data []byte, v interface{}) error {
+func (c *Codec) Unmarshal(data []byte, v any) error {
 	if err := c.marshaler.Unmarshal(data, v); err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (c *Codec) newKey(key reflect.Value, a Adapter) reflect.Value {
 	return reflect.ValueOf(fmt.Sprintf("%s%s%s", key, c.typeSep, a.Type()))
 }
 
-func (c *Codec) fromTypedMap(mi interface{}) (reflect.Value, error) {
+func (c *Codec) fromTypedMap(mi any) (reflect.Value, error) {
 	m := reflect.ValueOf(mi)
 	if m.Kind() == reflect.Ptr {
 		m = m.Elem()
@@ -207,12 +207,12 @@ func (c *Codec) fromTypedMap(mi interface{}) (reflect.Value, error) {
 }
 
 var (
-	interfaceMapType   = reflect.TypeOf(make(map[string]interface{}))
-	interfaceSliceType = reflect.TypeOf([]interface{}{})
-	stringType         = reflect.TypeOf("")
+	interfaceMapType   = reflect.TypeOf(make(map[string]any))
+	interfaceSliceType = reflect.TypeOf([]any{})
+	stringType         = reflect.TypeFor[string]()
 )
 
-func (c *Codec) toTypedMap(mi interface{}) (interface{}, error) {
+func (c *Codec) toTypedMap(mi any) (any, error) {
 	mv := reflect.ValueOf(mi)
 
 	if mv.Kind() != reflect.Map || mv.Type().Key().Kind() != reflect.String {
@@ -281,17 +281,17 @@ func (c *Codec) toStringMap(mi reflect.Value) (reflect.Value, error) {
 // MarshalUnmarshaler is the interface that must be implemented if you want to
 // add support for more than JSON to this codec.
 type MarshalUnmarshaler interface {
-	Marshal(v interface{}) ([]byte, error)
-	Unmarshal(b []byte, v interface{}) error
+	Marshal(v any) ([]byte, error)
+	Unmarshal(b []byte, v any) error
 }
 
 type jsonMarshaler int
 
-func (jsonMarshaler) Marshal(v interface{}) ([]byte, error) {
+func (jsonMarshaler) Marshal(v any) ([]byte, error) {
 	return json.Marshal(v)
 }
 
-func (jsonMarshaler) Unmarshal(b []byte, v interface{}) error {
+func (jsonMarshaler) Unmarshal(b []byte, v any) error {
 	return json.Unmarshal(b, v)
 }
 
