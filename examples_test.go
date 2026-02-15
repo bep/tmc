@@ -14,7 +14,7 @@ import (
 )
 
 func Example() {
-	m1 := map[string]interface{}{"num": 42}
+	m1 := map[string]any{"num": 42}
 	c, err := tmc.New()
 	if err != nil {
 		log.Fatal(err)
@@ -25,7 +25,7 @@ func Example() {
 		log.Fatal(err)
 	}
 
-	m2 := make(map[string]interface{})
+	m2 := make(map[string]any)
 	err = c.Unmarshal(data, &m2)
 	if err != nil {
 		log.Fatal(err)
@@ -37,7 +37,7 @@ func Example() {
 }
 
 func ExampleWithMarshalUnmarshaler() {
-	m1 := map[string]interface{}{"num": 42}
+	m1 := map[string]any{"num": 42}
 	c, err := tmc.New(tmc.WithMarshalUnmarshaler(new(yamlMarshaler)))
 	if err != nil {
 		log.Fatal(err)
@@ -48,7 +48,7 @@ func ExampleWithMarshalUnmarshaler() {
 		log.Fatal(err)
 	}
 
-	m2 := make(map[string]interface{})
+	m2 := make(map[string]any)
 	err = c.Unmarshal(data, &m2)
 	if err != nil {
 		log.Fatal(err)
@@ -61,10 +61,10 @@ func ExampleWithMarshalUnmarshaler() {
 
 type yamlMarshaler int
 
-func (yamlMarshaler) Marshal(v interface{}) ([]byte, error) {
+func (yamlMarshaler) Marshal(v any) ([]byte, error) {
 	return yaml.Marshal(v)
 }
 
-func (yamlMarshaler) Unmarshal(b []byte, v interface{}) error {
+func (yamlMarshaler) Unmarshal(b []byte, v any) error {
 	return yaml.Unmarshal(b, v)
 }
