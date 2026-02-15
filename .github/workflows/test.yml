@@ -1,33 +1,37 @@
+on:
+  push:
+    branches: [master]
+  pull_request:
+permissions:
+  contents: read
 name: Test
-on: [push, pull_request]
-
 jobs:
-
-  build:
-    name: Test
-    runs-on: ${{ matrix.os }}
+  test:
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-
+        go-version: [1.25.x, 1.26.x]
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
     steps:
-    - name: Set up Go
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.12
-      id: go
-
-    - name: Checkout
-      uses: actions/checkout@v1
-
-    - name: Test
-      run: go test . -coverprofile=coverage.txt -covermode=atomic
-
-    - name: Test race
-      run: go test -race .
-
-    - name: Upload to Codecov
-      if: matrix.os == 'ubuntu-latest'
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      run: bash <(curl -s https://codecov.io/bash)
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Install Go
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+        shell: bash
+      - name: Update PATH
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Fmt
+        if: matrix.platform == 'ubuntu-latest'
+        run: "diff <(gofmt -d .) <(printf '')"
+        shell: bash
+      - name: Vet
+        run: go vet ./...
+      - name: Staticcheck
+        run: staticcheck ./...
+      - name: Test
+        run: go test -race ./...

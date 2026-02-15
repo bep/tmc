@@ -25,30 +25,28 @@ type Adapter interface {
 	Wrap(v interface{}) Adapter
 }
 
-var (
-	// DefaultTypeAdapters contains the default set of type adapters.
-	DefaultTypeAdapters = []Adapter{
-		// Time
-		NewAdapter(time.Now(), nil, nil),
-		NewAdapter(
-			3*time.Hour,
-			func(s string) (interface{}, error) { return time.ParseDuration(s) },
-			func(v interface{}) (string, error) { return v.(time.Duration).String(), nil },
-		),
+// DefaultTypeAdapters contains the default set of type adapters.
+var DefaultTypeAdapters = []Adapter{
+	// Time
+	NewAdapter(time.Now(), nil, nil),
+	NewAdapter(
+		3*time.Hour,
+		func(s string) (interface{}, error) { return time.ParseDuration(s) },
+		func(v interface{}) (string, error) { return v.(time.Duration).String(), nil },
+	),
 
-		// Numbers
-		NewAdapter(big.NewRat(1, 2), nil, nil),
-		NewAdapter(
-			int(32),
-			func(s string) (interface{}, error) {
-				return strconv.Atoi(s)
-			},
-			func(v interface{}) (string, error) {
-				return strconv.Itoa(v.(int)), nil
-			},
-		),
-	}
-)
+	// Numbers
+	NewAdapter(big.NewRat(1, 2), nil, nil),
+	NewAdapter(
+		int(32),
+		func(s string) (interface{}, error) {
+			return strconv.Atoi(s)
+		},
+		func(v interface{}) (string, error) {
+			return strconv.Itoa(v.(int)), nil
+		},
+	),
+}
 
 // NewAdapter creates a new adapter that wraps the target type.
 //
@@ -59,8 +57,8 @@ var (
 func NewAdapter(
 	target interface{},
 	fromString func(s string) (interface{}, error),
-	toString func(v interface{}) (string, error)) Adapter {
-
+	toString func(v interface{}) (string, error),
+) Adapter {
 	targetValue := reflect.ValueOf(target)
 	targetType := targetValue.Type()
 

@@ -71,9 +71,8 @@ func WithMarshalUnmarshaler(marshaler MarshalUnmarshaler) func(c *Codec) error {
 // if you want to use the default adapters, but override some of them, you
 // can do:
 //
-//   adapters := append(typedmapcodec.DefaultTypeAdapters, mycustomAdapters ...)
-//   codec := typedmapcodec.New(WithTypeAdapters(adapters))
-//
+//	adapters := append(typedmapcodec.DefaultTypeAdapters, mycustomAdapters ...)
+//	codec := typedmapcodec.New(WithTypeAdapters(adapters))
 func WithTypeAdapters(typeAdapters []Adapter) func(c *Codec) error {
 	return func(c *Codec) error {
 		c.typeAdapters = typeAdapters
@@ -214,7 +213,6 @@ var (
 )
 
 func (c *Codec) toTypedMap(mi interface{}) (interface{}, error) {
-
 	mv := reflect.ValueOf(mi)
 
 	if mv.Kind() != reflect.Map || mv.Type().Key().Kind() != reflect.String {

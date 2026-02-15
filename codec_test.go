@@ -27,26 +27,30 @@ func TestRoundtrip(t *testing.T) {
 		options    []Option
 		dataAssert func(c *qt.C, data string)
 	}{
-		{"Default", nil,
-			func(c *qt.C, data string) { c.Assert(data, qt.Contains, `{"nested":{"vduration|time.Duration":"5s"`) }},
-		{"Custom type separator",
+		{
+			"Default", nil,
+			func(c *qt.C, data string) { c.Assert(data, qt.Contains, `{"nested":{"vduration|time.Duration":"5s"`) },
+		},
+		{
+			"Custom type separator",
 			[]Option{
 				WithTypeSep("TYPE:"),
 			},
 			func(c *qt.C, data string) { c.Assert(data, qt.Contains, "TYPE:") },
 		},
-		{"YAML",
+		{
+			"YAML",
 			[]Option{
 				WithMarshalUnmarshaler(new(yamlMarshaler)),
 			},
 			func(c *qt.C, data string) { c.Assert(data, qt.Contains, "vduration|time.Duration: 3s") },
 		},
-		{"JSON indent",
+		{
+			"JSON indent",
 			[]Option{
 				WithMarshalUnmarshaler(new(jsonMarshalerIndent)),
 			},
 			func(c *qt.C, data string) {
-
 			},
 		},
 	} {
@@ -60,7 +64,7 @@ func TestRoundtrip(t *testing.T) {
 
 			data, err := codec.Marshal(src)
 			c.Assert(err, qt.IsNil)
-			//c.Log(string(data))
+			// c.Log(string(data))
 			if test.dataAssert != nil {
 				test.dataAssert(c, string(data))
 			}
@@ -72,7 +76,6 @@ func TestRoundtrip(t *testing.T) {
 		})
 
 	}
-
 }
 
 func TestErrors(t *testing.T) {
@@ -130,7 +133,6 @@ func BenchmarkCodec(b *testing.B) {
 			}
 		}
 	})
-
 }
 
 func newTestMap() map[string]interface{} {
@@ -178,7 +180,6 @@ type yamlMarshaler int
 
 func (yamlMarshaler) Marshal(v interface{}) ([]byte, error) {
 	return yaml.Marshal(v)
-
 }
 
 func (yamlMarshaler) Unmarshal(b []byte, v interface{}) error {

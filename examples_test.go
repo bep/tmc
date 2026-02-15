@@ -34,7 +34,6 @@ func Example() {
 
 	fmt.Printf("%v (%T)", num, num)
 	// Output: 42 (int)
-
 }
 
 func ExampleWithMarshalUnmarshaler() {
@@ -64,7 +63,6 @@ type yamlMarshaler int
 
 func (yamlMarshaler) Marshal(v interface{}) ([]byte, error) {
 	return yaml.Marshal(v)
-
 }
 
 func (yamlMarshaler) Unmarshal(b []byte, v interface{}) error {
