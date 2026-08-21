@@ -207,8 +207,8 @@ func (c *Codec) fromTypedMap(mi any) (reflect.Value, error) {
 }
 
 var (
-	interfaceMapType   = reflect.TypeOf(make(map[string]any))
-	interfaceSliceType = reflect.TypeOf([]any{})
+	interfaceMapType   = reflect.TypeFor[map[string]any]()
+	interfaceSliceType = reflect.TypeFor[[]any]()
 	stringType         = reflect.TypeFor[string]()
 )
 

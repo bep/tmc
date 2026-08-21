@@ -71,7 +71,7 @@ func NewAdapter(
 	}
 
 	if fromString == nil {
-		if _, ok := targetValue.Interface().(encoding.TextUnmarshaler); ok {
+		if _, ok := reflect.TypeAssert[encoding.TextUnmarshaler](targetValue); ok {
 			fromString = func(s string) (any, error) {
 				typ := targetType
 				if typ.Kind() == reflect.Ptr {
